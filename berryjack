@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Get posted media
+function get_media()
+{
+  id=$1
+  tmp=/tmp/$$.media
+  param=
+  while :; do
+    wget -O - -q "https://twitter.com/i/profiles/show/$id/media_timeline$param" | sed 's/\\//g' > $tmp
+    grep -Eo 'https://pbs\.twimg\.com/media/\w+\.(jpg|png)' $tmp | sort | uniq | sed 's/$/:orig/g'
+    cxt_id=$(grep -Eo 'data-tweet-id="[0-9]+' $tmp | sed 's/^.*="//g' | sort | head -n 1)
+    [ -n "$cxt_id" ] || break
+    max_id=$(expr $cxt_id - 1)
+    param="?contextual_tweet_id=$cxt_id&max_id=$max_id"
+  done
+  rm $tmp
+}
+
+# Check number of args and print usage
+[ $# -eq 0 ] && (
+  echo "$(basename $0) - The simple twitter media downloader"
+  echo "Usage: $0 account[, ...]"
+) && exit 0
+
+list_up_only=0
+
+for id in $@; do
+  echo "---"
+  echo "Target account name: $id"
+  if [ $list_up_only -eq 0 ]; then
+    dir=./$id
+    mkdir -p "$dir" 2>/dev/null
+    get_media $id | wget -nv -i - -P "$dir"
+  else
+    get_media $id
+  fi
+done
+
