@@ -36,9 +36,24 @@ Clone the repository and add executable parmission to berryjack.
 Usage
 -----
 
-The media files saved into new directory named 'twitter_account_name' in current directroy.
 
-    ./berryjack twitter_account_name[, ...]
+    ./berryjack [options] twitter_name[, ...]
+
+Options
+-------
+
+* -l
+List up only, No download.
+
+* -d dir
+Set directory to downloads.
+
+* -u
+The media files saved into new directory named 'twitter_name' in the specified directory.
+
+* -o
+
+Get original size media.
 
 License
 -------
