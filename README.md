@@ -10,7 +10,7 @@ It access to Twitter media timeline via HTTP/JSON instead of Twitter API.
 Dependency
 ----------
 
-* basic UNIX commands
+* Commands:
   * bash
   * wget
   * grep
@@ -20,11 +20,14 @@ Dependency
   * head
   * test
   * mkdir
+* Filesystem:
+  * /tmp
+  * current directory
 
 Setup
 -----
 
-Clone the repository and add execute parmission to berryjack.
+Clone the repository and add executable parmission to berryjack.
 
     git clone git@github.com:dyama/berryjack
     cd berryjack
@@ -36,10 +39,6 @@ Usage
 The media files saved into new directory named 'twitter_account_name' in current directroy.
 
     ./berryjack twitter_account_name[, ...]
-
-### Example
-
-    ./berryjack dyama226
 
 License
 -------
