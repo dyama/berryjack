@@ -74,7 +74,7 @@ for id in $@; do
     else
       userdir="$dir"
     fi
-    get_media $id $get_orig | wget -nv -i - -P "$userdir"
+    get_media $id $get_orig | wget -nc -nv -i - -P "$userdir"
   else
     get_media $id $get_orig
   fi
