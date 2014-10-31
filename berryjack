@@ -11,7 +11,7 @@ function get_media()
     url="https://twitter.com/i/profiles/show/$id/media_timeline$param"
     # echo "$url" 1>&2
     wget -O - -q "$url" | sed 's/\\//g' > $tmp
-    grep -Eo 'https://pbs\.twimg\.com/media/\w+\.(jpg|png)' $tmp | sort | uniq | \
+    grep -Eo 'https://pbs\.twimg\.com/media/[a-zA-Z0-9_\-]+\.(jpg|png)' $tmp | sort | uniq | \
       (if [ $orig -eq 0 ]; then
         cat
       else
@@ -50,7 +50,7 @@ make_user_dir=0
 get_orig=0
 
 # Get option strings
-while getopts d:lmo opt
+while getopts d:lumo opt
 do
   case $opt in
     d) dir=$OPTARG ;;
@@ -66,6 +66,7 @@ shift $(expr $OPTIND - 1)
 
 # Download
 for id in $@; do
+  id=$(basename $id | sed 's/^@//g')
   echo "Target twitter name: $id" 1>&2
   if [ $list_up_only -eq 0 ]; then
     mkdir -p "$dir" 2>/dev/null
