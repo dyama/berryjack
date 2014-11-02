@@ -20,6 +20,7 @@ Dependency
   * head
   * test
   * mkdir
+  * basename
 * Filesystem:
   * /tmp
   * current directory
@@ -27,7 +28,7 @@ Dependency
 Setup
 -----
 
-Clone the repository and add executable parmission to berryjack.
+Clone the repository and add executable permission to berryjack.
 
     git clone git@github.com:dyama/berryjack
     cd berryjack
@@ -43,7 +44,7 @@ Options
 -------
 
 * -l
-List up only, No download.
+Only list up media URLs, No download.
 
 * -d dir
 Set directory to downloads.
@@ -52,7 +53,6 @@ Set directory to downloads.
 The media files saved into new directory named 'twitter_name' in the specified directory.
 
 * -o
-
 Get original size media.
 
 License
