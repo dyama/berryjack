@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Decode Unicode escaped string to UTF-8 string
+function decode()
+{
+  cat | sed -e 's/\\u\(....\)/\&#x\1;/g' | nkf --numchar-input
+}
+
+function escape()
+{
+  cat | sed -e 's/\\"/"/g' -e 's/\\\//\//g' -e 's/\\n/\n/g' 
+}
+
 # Get posted media
 function get_media()
 {
@@ -9,8 +20,11 @@ function get_media()
   param=
   while :; do
     url="https://twitter.com/i/profiles/show/$id/media_timeline$param"
-    # echo "$url" 1>&2
-    wget -O - -q "$url" | sed 's/\\//g' > $tmp
+    wget -O - -q "$url" | escape | decode > $tmp
+    # video
+    grep -Eo '/i/cards/[^"]+' $tmp | sed -e 's/&amp;/\&/' -e 's/^/https:\/\/twitter.com/g' | sort | uniq | \
+      wget -O - -i - -q | escape | decode | grep -Eo 'https://video[^&]*'
+    # image
     grep -Eo 'https://pbs\.twimg\.com/media/[a-zA-Z0-9_\-]+\.(jpg|png)' $tmp | sort | uniq | \
       (if [ $orig -eq 0 ]; then
         cat
