@@ -21,9 +21,9 @@ Dependency
   * test
   * mkdir
   * basename
+
 * Filesystem:
   * /tmp
-  * current directory
 
 Setup
 -----
@@ -37,7 +37,6 @@ Clone the repository and add executable permission to berryjack.
 Usage
 -----
 
-
     ./berryjack [options] twitter_name[, ...]
 
 Options
@@ -50,10 +49,13 @@ Only list up media URLs, No download.
 Set directory to downloads.
 
 * -u
-The media files saved into new directory named 'twitter_name' in the specified directory.
+The media files saved into new directory named 'twitter\_name' in the specified directory.
 
 * -o
 Get original size media.
+
+* -U, -P
+Twitter account usernema/E-mail and password for login.
 
 License
 -------
