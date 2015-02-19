@@ -12,18 +12,22 @@ function escape()
 }
 
 # Get posted media
-function get_media()
+function get_media_url()
 {
   id=$1
   orig=$2
+  cookie_opt=
+  if [ "$3" != "" ]; then
+    cookie_opt="--keep-session-cookies --load-cookies $3"
+  fi
   tmp=/tmp/$$.media
   param=
   while :; do
     url="https://twitter.com/i/profiles/show/$id/media_timeline$param"
-    wget -O - -q "$url" | escape | decode > $tmp
+    wget $cookie_opt -O - -q "$url" | escape | decode > $tmp
     # video
     grep -Eo '/i/cards/[^"]+' $tmp | sed -e 's/&amp;/\&/' -e 's/^/https:\/\/twitter.com/g' | sort | uniq | \
-      wget -O - -i - -q | escape | decode | grep -Eo 'https://video[^&]*'
+      wget $cooke_opt -O - -i - -q | escape | decode | grep -Eo 'https://video[^&]*'
     # image
     grep -Eo 'https://pbs\.twimg\.com/media/[a-zA-Z0-9_\-]+\.(jpg|png)' $tmp | sort | uniq | \
       (if [ $orig -eq 0 ]; then
@@ -40,18 +44,43 @@ function get_media()
   rm $tmp
 }
 
+# Login to twitter
+function login()
+{
+  username=$1
+  password=$2
+  echo "Login to twitter.com ... " 1>&2
+  echo "User: $username" 1>&2
+  token_cookie=/tmp/twitter_tokens.$$.txt
+  session_cookie=/tmp/twitter_session.$$.txt
+  token=$(wget -nv --keep-session-cookies --save-cookies $token_cookie -O - https://twitter.com | grep authenticity_token | grep -Po '(?<=value=")[^"]+' | head -n 1)
+  wget -nv -O - --keep-session-cookies --load-cookies $token_cookie --save-cookies $session_cookie \
+    --post-data "session[username_or_email]=$username&session[password]=$password&scribe_log=&remember_me=0&redirect_after_login=%2F&authenticity_token=$token" \
+    https://twitter.com/sessions > /dev/null
+  if [ -f "$session_cookie" ]; then
+    echo $session_cookie
+  fi
+  rm $token_cookie
+}
+
 function print_usage()
 {
   echo "$(basename $0) - The simple twitter media downloader"
   echo ""
   echo "Usage:"
-  echo "  $0 [-l] [-d outdir] [-u] twitter_name[, ...]"
+  echo "  $0 [options] twitter_name[, ...]"
   echo ""
   echo "Options:"
-  echo "  -l      List up only, No download."
-  echo "  -d dir  Set directory to save downloaded files."
-  echo "  -u      Create directory named twitter name each by each."
-  echo "  -o      Get original size media."
+  echo "  -l             List up only, No download."
+  echo "  -d dir         Set directory to save downloaded files."
+  echo "  -u             Create directory named twitter name each by each."
+  echo "  -o             Get original size media."
+  echo "  -U user/email  Twitter user name or E-mail for login."
+  echo "  -P password    Password for login."
+  echo ""
+  echo "Example:"
+  echo ""
+  echo "  $0 -uo -d ~/twitter -U hoge -P fuga account1 account2 account3"
   echo ""
   echo "* You can get more information and latest version at;"
   echo "  berryjack project page : https://github.com/dyama/berryjack"
@@ -62,15 +91,18 @@ dir=.
 list_up_only=0
 make_user_dir=0
 get_orig=0
+cookie_file=
 
 # Get option strings
-while getopts d:lumo opt
+while getopts d:luoU:P: opt
 do
   case $opt in
     d) dir=$OPTARG ;;
     l) list_up_only=1 ;;
     u) make_user_dir=1 ;;
     o) get_orig=1 ;;
+    U) username=$OPTARG ;;
+    P) password=$OPTARG ;;
   esac
 done
 shift $(expr $OPTIND - 1)
@@ -78,10 +110,25 @@ shift $(expr $OPTIND - 1)
 # Check number of args and print usage
 [ $# -eq 0 ] && print_usage && exit 0
 
+if [ -n "$username" -a -n "$password" ]; then
+  cookie_file=$(login "$username" "$password")
+  if [ -f "$cookie_file" ]; then
+    cookie_opt="--keep-session-cookies --load-cookies $cookie_file"
+    echo "Login succeed. Cookie file is $cookie_file" 1>&2
+  else
+    echo "Login failed. Please check your specified username/email or password." 1>&2
+    exit 1
+  fi
+else
+  echo "Try to download media without login." 1>&2
+fi
+
 # Download
 for id in $@; do
+
   id=$(basename $id | sed 's/^@//g')
   echo "Target twitter name: $id" 1>&2
+
   if [ $list_up_only -eq 0 ]; then
     mkdir -p "$dir" 2>/dev/null
     if [ $make_user_dir -eq 1 ]; then
@@ -89,9 +136,12 @@ for id in $@; do
     else
       userdir="$dir"
     fi
-    get_media $id $get_orig | wget -nc -nv -i - -P "$userdir"
+    get_media_url $id $get_orig $cookie_file | wget $cookie_opt -nc -nv -i - -P "$userdir"
   else
-    get_media $id $get_orig
+    get_media_url $id $get_orig $cookie_file
   fi
+
 done
+
+rm $cookie_file
 
