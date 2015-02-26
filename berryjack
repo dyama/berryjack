@@ -60,7 +60,7 @@ function login()
   if [ -f "$session_cookie" ]; then
     echo $session_cookie
   fi
-  rm $token_cookie
+  [ -f "$token_cookie" ] && rm $token_cookie 2>/dev/null
 }
 
 function print_usage()
@@ -143,5 +143,5 @@ for id in $@; do
 
 done
 
-rm $cookie_file
+[ -f "$cookie_file" ] && rm $cookie_file 2>/dev/null
 
