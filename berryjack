@@ -1,14 +1,78 @@
 #!/bin/bash
+# coding: utf-8
 
-# Decode Unicode escaped string to UTF-8 string
-function decode()
+source "common.sh"
+
+function get_profile_image()
 {
-  cat | sed -e 's/\\u\(....\)/\&#x\1;/g' | nkf --numchar-input
+  src="$1"
+  dest="$2"
+  temp="$dest.$(now)"
+  url=$(grep -oE 'https://pbs.twimg.com/profile_images/[0-9]{10}/[0-9a-z]{10,}.(jpe?|pn)g' "$src" | sort | uniq | head -n 1)
+  if [ -n "$url" ]; then
+    wget -O "$temp" -nv "$url"
+    save_with_backup "$temp" "$dest"
+  fi
 }
 
-function escape()
+function get_profile_banner()
 {
-  cat | sed -e 's/\\"/"/g' -e 's/\\\//\//g' -e 's/\\n/\n/g' 
+  src="$1"
+  dest="$2"
+  temp="$dest.$(now)"
+  url=$(grep -oE 'https://pbs.twimg.com/profile_banners/[0-9]{10}/[0-9]{10}/web' "$src" | sort | uniq | head -n 1)
+  if [ -n "$url" ]; then
+    wget -O "$temp" -nv "$url"
+    save_with_backup "$temp" "$dest"
+  fi
+}
+
+function get_profile_text()
+{
+  src="$1"
+  dest="$2"
+  temp="$dest.$(now)"
+  (
+    awk '/ProfileHeaderCard-name/,/\/h1/{ print $0; }' "$src" | tr -d '\n' | strip_html_tag
+    echo ""
+    awk '/ProfileHeaderCard-bio/,/<div/{ print $0; }' "$src" | tr -d '\n' | strip_html_tag
+    echo ""
+    grep 'ProfileHeaderCard-locationText' "$src" | strip_html_tag
+    grep 'ProfileHeaderCard-urlText'      "$src" | sed 's/.*title="\([^"]*\).*/\1/g'
+    grep 'ProfileHeaderCard-joinDateText' "$src" | sed 's/.*title="\([^"]*\).*/\1/g' | sed 's/\(.*\) - \(.*\)/\2\1/g'
+  ) > "$temp"
+  save_with_backup "$temp" "$dest"
+}
+
+function get_profile()
+{
+  id="$1"
+  dir="$2"
+  src="/tmp/twitter_profile.$$.html"
+  wget -O "$src" -nv "https://twitter.com/$id"
+  get_profile_text   "$src" "$dir/profile.txt"
+  get_profile_image  "$src" "$dir/profile.jpg"
+  get_profile_banner "$src" "$dir/banner.jpg"
+  rm "$src"
+}
+
+# Login to twitter
+function login()
+{
+  username=$1
+  password=$2
+  echo "Login to twitter.com ... " 1>&2
+  echo "User: $username" 1>&2
+  token_cookie=/tmp/twitter_tokens.$$.txt
+  session_cookie=/tmp/twitter_session.$$.txt
+  token=$(wget -nv --keep-session-cookies --save-cookies $token_cookie -O - https://twitter.com | grep authenticity_token | grep -Po '(?<=value=")[^"]+' | head -n 1)
+  wget -nv -O - --keep-session-cookies --load-cookies $token_cookie --save-cookies $session_cookie \
+    --post-data "session[username_or_email]=$username&session[password]=$password&scribe_log=&remember_me=0&redirect_after_login=%2F&authenticity_token=$token" \
+    https://twitter.com/sessions > /dev/null
+  if [ -f "$session_cookie" ]; then
+    echo $session_cookie
+  fi
+  [ -f "$token_cookie" ] && rm $token_cookie 2>/dev/null
 }
 
 # Get posted media
@@ -42,25 +106,6 @@ function get_media_url()
     param="?contextual_tweet_id=$cxt_id&max_id=$max_id"
   done
   rm $tmp
-}
-
-# Login to twitter
-function login()
-{
-  username=$1
-  password=$2
-  echo "Login to twitter.com ... " 1>&2
-  echo "User: $username" 1>&2
-  token_cookie=/tmp/twitter_tokens.$$.txt
-  session_cookie=/tmp/twitter_session.$$.txt
-  token=$(wget -nv --keep-session-cookies --save-cookies $token_cookie -O - https://twitter.com | grep authenticity_token | grep -Po '(?<=value=")[^"]+' | head -n 1)
-  wget -nv -O - --keep-session-cookies --load-cookies $token_cookie --save-cookies $session_cookie \
-    --post-data "session[username_or_email]=$username&session[password]=$password&scribe_log=&remember_me=0&redirect_after_login=%2F&authenticity_token=$token" \
-    https://twitter.com/sessions > /dev/null
-  if [ -f "$session_cookie" ]; then
-    echo $session_cookie
-  fi
-  [ -f "$token_cookie" ] && rm $token_cookie 2>/dev/null
 }
 
 function print_usage()
@@ -133,6 +178,8 @@ for id in $@; do
     mkdir -p "$dir" 2>/dev/null
     if [ $make_user_dir -eq 1 ]; then
       userdir="$dir/$id"
+      mkdir -p "$userdir" 2>/dev/null
+      get_profile "$id" "$userdir"
     else
       userdir="$dir"
     fi
