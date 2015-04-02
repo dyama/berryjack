@@ -104,6 +104,7 @@ function get_media_url()
     cookie_opt="--keep-session-cookies --load-cookies $3"
   fi
   dir=$4
+  force=$5
   tmp=/tmp/$$.media
   param=
   while :; do
@@ -135,7 +136,7 @@ function get_media_url()
         skip=1
       fi
     done
-    if [ $skip -eq 1 ]; then
+    if [ $force -ne 1 -a $skip -eq 1 ]; then
       echo " skip" >&2
       break;
     fi
@@ -172,20 +173,22 @@ function print_usage()
 }
 
 # Initialize varable
-dir=.
+odir=.
 list_up_only=0
 make_user_dir=0
 get_orig=0
+force=0
 cookie_file=
 
 # Get option strings
-while getopts d:luoU:P: opt
+while getopts d:luofU:P: opt
 do
   case $opt in
-    d) dir=$OPTARG ;;
+    d) odir=$OPTARG ;;
     l) list_up_only=1 ;;
     u) make_user_dir=1 ;;
     o) get_orig=1 ;;
+    f) force=1 ;;
     U) username=$OPTARG ;;
     P) password=$OPTARG ;;
   esac
@@ -215,17 +218,18 @@ for id in $@; do
   echo "Target twitter name: $id" 1>&2
 
   if [ $list_up_only -eq 0 ]; then
-    mkdir -p "$dir" 2>/dev/null
+    userdir=
+    mkdir -p "$odir" 2>/dev/null
     if [ $make_user_dir -eq 1 ]; then
-      userdir="$dir/$id"
+      userdir="$odir/$id"
       mkdir -p "$userdir" 2>/dev/null
       get_profile "$id" "$userdir"
     else
-      userdir="$dir"
+      userdir="$odir"
     fi
-    get_media_url $id $get_orig "$cookie_file" $userdir | wget $cookie_opt -nc -nv -i - -P "$userdir"
+    get_media_url $id $get_orig "$cookie_file" $userdir $force | wget $cookie_opt -nc -nv -i - -P "$userdir"
   else
-    get_media_url $id $get_orig "$cookie_file" ""
+    get_media_url $id $get_orig "$cookie_file" "" $force
   fi
 
 done
