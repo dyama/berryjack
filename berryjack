@@ -1,5 +1,6 @@
 #!/bin/bash
 # coding: utf-8
+
 SCRIPT_DIR=$(cd $(dirname $0);pwd)
 source "$SCRIPT_DIR/common.sh"
 
@@ -107,6 +108,7 @@ function get_media_url()
   force=$5
   tmp=/tmp/$$.media
   param=
+  cxt_id_prev=
   while :; do
     skip=0
     url="https://twitter.com/i/profiles/show/$id/media_timeline$param"
@@ -142,8 +144,11 @@ function get_media_url()
     fi
     cxt_id=$(grep -Eo 'data-tweet-id="[0-9]+' $tmp | sed 's/^.*="//g' | sort | head -n 1)
     [ -n "$cxt_id" ] || break
+    if [ "$cxt_id" == "$cxt_id_prev" ]; then break; fi
+    cxt_id_prev=$cxt_id
     max_id=$(expr $cxt_id - 1)
-    param="?contextual_tweet_id=$cxt_id&max_id=$max_id"
+    # param="?contextual_tweet_id=$cxt_id&max_id=$max_id"
+    param="?last_note_ts=$cxt_id&max_position=$max_id"
     echo "" >&2
   done
   rm $tmp
@@ -151,25 +156,28 @@ function get_media_url()
 
 function print_usage()
 {
-  echo "$(basename $0) - The simple twitter media downloader"
-  echo ""
-  echo "Usage:"
-  echo "  $0 [options] twitter_name[, ...]"
-  echo ""
-  echo "Options:"
-  echo "  -l             List up only, No download."
-  echo "  -d dir         Set directory to save downloaded files."
-  echo "  -u             Create directory named twitter name each by each."
-  echo "  -o             Get original size media."
-  echo "  -U user/email  Twitter user name or E-mail for login."
-  echo "  -P password    Password for login."
-  echo ""
-  echo "Example:"
-  echo ""
-  echo "  $0 -uo -d ~/twitter -U hoge -P fuga account1 account2 account3"
-  echo ""
-  echo "* You can get more information and latest version at;"
-  echo "  berryjack project page : https://github.com/dyama/berryjack"
+  cat <<EOF
+$(basename $0) - The simple twitter media downloader
+
+Usage:
+  $0 [options] twitter_name[, ...]
+
+Options:
+  -l             List up only, No download.
+  -d dir         Set directory to save downloaded files.
+  -u             Create directory named twitter name each by each.
+  -o             Get original size media.
+  -f             Force download.
+  -U user/email  Twitter user name or E-mail for login.
+  -P password    Password for login.
+
+Example:
+
+  $0 -uo -d ~/twitter -U hoge -P fuga account1 account2 account3
+
+* You can get more information and latest version at;
+  berryjack project page : https://github.com/dyama/berryjack
+EOF
 }
 
 # Initialize varable
@@ -211,6 +219,8 @@ else
   echo "Try to download media without login." 1>&2
 fi
 
+pids=
+
 # Download
 for id in $@; do
 
@@ -227,12 +237,22 @@ for id in $@; do
     else
       userdir="$odir"
     fi
-    get_media_url $id $get_orig "$cookie_file" $userdir $force | wget $cookie_opt -nc -nv -i - -P "$userdir"
+    # get_media_url $id $get_orig "$cookie_file" $userdir $force | wget $cookie_opt -nc -nv -i - -P "$userdir"
+    for media_url in $(get_media_url $id $get_orig "$cookie_file" $userdir $force)
+    do
+      wget $cookie_opt -nc -nv -P "$userdir" "$media_url"
+      #pids="$pids $!"
+    done
   else
     get_media_url $id $get_orig "$cookie_file" "" $force
   fi
 
 done
+
+#for pid in $pids
+#do
+#  wait $pid
+#done
 
 [ -f "$cookie_file" ] && rm $cookie_file 2>/dev/null
 
