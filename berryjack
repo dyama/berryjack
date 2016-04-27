@@ -64,12 +64,12 @@ function login()
 {
   username=$1
   password=$2
-  echo "Login to twitter.com ... " 1>&2
-  echo "User: $username" 1>&2
+  # echo "Login to twitter.com ... " 1>&2
+  # echo "User: $username" 1>&2
   token_cookie=/tmp/twitter_tokens.$$.txt
   session_cookie=/tmp/twitter_session.$$.txt
-  token=$(wget -nv --keep-session-cookies --save-cookies $token_cookie -O - https://twitter.com | grep authenticity_token | grep -Po '(?<=value=")[^"]+' | head -n 1)
-  wget -nv -O - --keep-session-cookies --load-cookies $token_cookie --save-cookies $session_cookie \
+  token=$(wget -q --keep-session-cookies --save-cookies $token_cookie -O - https://twitter.com | grep authenticity_token | grep -Po '(?<=value=")[^"]+' | head -n 1)
+  wget -q -O - --keep-session-cookies --load-cookies $token_cookie --save-cookies $session_cookie \
     --post-data "session[username_or_email]=$username&session[password]=$password&scribe_log=&remember_me=0&redirect_after_login=%2F&authenticity_token=$token" \
     https://twitter.com/sessions > /dev/null
   if [ -f "$session_cookie" ]; then
@@ -114,11 +114,28 @@ function get_media_url()
     url="https://twitter.com/i/profiles/show/$id/media_timeline$param"
     wget $cookie_opt -O - -q "$url" | escape | decode > $tmp
     # video
-    for video in $(grep -Eo '/i/cards/[^"]+' $tmp | sed -e 's/&amp;/\&/' -e 's/^/https:\/\/twitter.com/g' | sort | uniq | \
-      wget $cooke_opt -O - -i - -q | escape | decode | grep -Eo 'https://video[^&]*')
+    for card in $(grep -Eo '/i/cards/[^"]+' $tmp | sed -e 's/&amp;/\&/g' -e 's/^/https:\/\/twitter.com/g' | sort | uniq )
     do
-      echo -n "v" >&2
+      vid=$(echo "$card" | grep -Eo '[0-9]{5,}')
+      vcurl="https://twitter.com/i/cards/tfw/v1/$vid"
+      video=$(wget $cooke_opt -q -O - $vcurl | escape | decode | grep -Eo 'https://video[^&]*')
+      if [ -n "$video" ]; then
+        if [ -d "$dir" ]; then
+          # echo $vcurl > "$dir/video_failed_$vid.txt"
+          :
+        else
+          echo $vcurl
+        fi
+        continue
+      fi
       exist "$dir" "$video"
+
+      # if [ -d "$dir" ]; then
+      #   echo $video > "$dir/video_$vid.txt"
+      # else
+      #   echo $video
+      # fi
+
       if [ $? -ne 0 ]; then
         skip=1
       fi
@@ -132,14 +149,12 @@ function get_media_url()
       fi
       ) )
     do
-      echo -n "i" >&2
       exist "$dir" "$image"
       if [ $? -ne 0 ]; then
         skip=1
       fi
     done
     if [ $force -ne 1 -a $skip -eq 1 ]; then
-      echo " skip" >&2
       break;
     fi
     cxt_id=$(grep -Eo 'data-tweet-id="[0-9]+' $tmp | sed 's/^.*="//g' | sort | head -n 1)
@@ -147,7 +162,6 @@ function get_media_url()
     if [ "$cxt_id" == "$cxt_id_prev" ]; then break; fi
     cxt_id_prev=$cxt_id
     max_id=$(expr $cxt_id - 1)
-    # param="?contextual_tweet_id=$cxt_id&max_id=$max_id"
     param="?last_note_ts=$cxt_id&max_position=$max_id"
     echo "" >&2
   done
@@ -210,7 +224,6 @@ if [ -n "$username" -a -n "$password" ]; then
   cookie_file=$(login "$username" "$password")
   if [ -f "$cookie_file" ]; then
     cookie_opt="--keep-session-cookies --load-cookies $cookie_file"
-    echo "Login succeed. Cookie file is $cookie_file" 1>&2
   else
     echo "Login failed. Please check your specified username/email or password." 1>&2
     exit 1
@@ -225,7 +238,7 @@ pids=
 for id in $@; do
 
   id=$(basename $id | sed 's/^@//g')
-  echo "Target twitter name: $id" 1>&2
+  echo "[bj] Target: $id" 1>&2
 
   if [ $list_up_only -eq 0 ]; then
     userdir=
@@ -237,22 +250,15 @@ for id in $@; do
     else
       userdir="$odir"
     fi
-    # get_media_url $id $get_orig "$cookie_file" $userdir $force | wget $cookie_opt -nc -nv -i - -P "$userdir"
     for media_url in $(get_media_url $id $get_orig "$cookie_file" $userdir $force)
     do
       wget $cookie_opt -nc -nv -P "$userdir" "$media_url"
-      #pids="$pids $!"
     done
   else
     get_media_url $id $get_orig "$cookie_file" "" $force
   fi
 
 done
-
-#for pid in $pids
-#do
-#  wait $pid
-#done
 
 [ -f "$cookie_file" ] && rm $cookie_file 2>/dev/null
 
