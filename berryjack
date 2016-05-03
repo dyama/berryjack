@@ -82,6 +82,9 @@ function exist()
 {
   dir=$1
   url=$2
+  if [ -z "$url" ]; then
+    return 1
+  fi
   if [ -d "$dir" ]; then
     fname=$(basename "$url")
     if [ -f "$dir/$fname" ]; then
@@ -114,31 +117,16 @@ function get_media_url()
     url="https://twitter.com/i/profiles/show/$id/media_timeline$param"
     wget $cookie_opt -O - -q "$url" | escape | decode > $tmp
     # video
-    for card in $(grep -Eo '/i/cards/[^"]+' $tmp | sed -e 's/&amp;/\&/g' -e 's/^/https:\/\/twitter.com/g' | sort | uniq )
+    for line in $(grep 'middot' $tmp | sed -e 's/.*href="//g' -e 's/".*$//g')
     do
-      vid=$(echo "$card" | grep -Eo '[0-9]{5,}')
-      vcurl="https://twitter.com/i/cards/tfw/v1/$vid"
+      item=($(echo "$line" | tr / ' '))
+      stat=${item[2]}
+      vcurl="https://twitter.com/i/videos/$stat"
       video=$(wget $cooke_opt -q -O - $vcurl | escape | decode | grep -Eo 'https://video[^&]*')
-      if [ -n "$video" ]; then
-        if [ -d "$dir" ]; then
-          # echo $vcurl > "$dir/video_failed_$vid.txt"
-          :
-        else
-          echo $vcurl
-        fi
-        continue
-      fi
       exist "$dir" "$video"
-
-      # if [ -d "$dir" ]; then
-      #   echo $video > "$dir/video_$vid.txt"
-      # else
-      #   echo $video
+      # if [ $? -ne 0 ]; then
+      #   skip=1
       # fi
-
-      if [ $? -ne 0 ]; then
-        skip=1
-      fi
     done
     # image
     for image in $( grep -Eo 'https://pbs\.twimg\.com/media/[a-zA-Z0-9_\-]+\.(jpg|png)' $tmp | sort | uniq | \
