@@ -119,8 +119,7 @@ function get_media_url()
     # video
     for line in $(grep 'middot' $tmp | sed -e 's/.*href="//g' -e 's/".*$//g')
     do
-      item=($(echo "$line" | tr / ' '))
-      stat=${item[2]}
+      stat=$(echo "$line" | cut -d'/' -f3)
       vcurl="https://twitter.com/i/videos/$stat"
       video=$(wget $cooke_opt -q -O - $vcurl | escape | decode | grep -Eo 'https://video[^&]*')
       exist "$dir" "$video"
